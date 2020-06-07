@@ -1,0 +1,93 @@
+#cloud-config
+# Add groups to the system
+locale: en_US.UTF-8
+timezone: Europe/Berlin
+groups:
+  - cw: [cw]
+
+# Add users to the system. Users are added after groups are added.
+users:
+  - default
+  - name: cw
+    passwd: ##PASSWDHASH##
+    lock_passwd: false
+    gecos: Chris
+    primary_group: cw
+    groups: adm,sshlogin,sudo
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDWaMnCGAHjz/MapUFq8YmzE62KjV3rafoghlAaWeKSGztOyFbfdJSlc3V40x0eEX04LSMXH7Q1u34zgfPGVtV7Kok6KXwKmUVdQUH60Gr/6KhvaLlbIHHwo/z05yH5tQ2x8b/f3EONOr1ynAEQiEW8Z6LXn0zw7yVcQSLxGksyLo2co4uU8jEp/dDKz8b4QFsuvyfhKbjdcun40bOOFv836b4G8smgD4SMO6oGu18mERVvwiYZYTp7Nvj6I6sQq+Q7oEsfR6OPpKOaEikEkMcAZwlcU3istLRI81yS64KtDwHIVzADBxGXN1sIWkT6hi+RzpJZ7tem0SaXot5MEyt4m2owOpmGlDag9+4b2FH59p1GTiATBWCLR84VIWkjVUreSxL4B7d7Mzp1QHKKCtqpuYlG6u6Dc5u1DuJdwV7hEhzvi0LYcgyASJ0HUh5neNhSHUGynDY0tG38wfIu0sb1Rkm9mrN8KDWk1dyfuuW69Bb/uyJHrq8xyN0I9L5pwhX8OWDS1PvIzaBjavYYSTEnrRUt+wPOjO8lwj3OZxA44s99gr+5DiNAzBunKiRhVL2/jnTVBJGYcdTfkuwL1eino/7/CeJzF+ZXm0SqLUaxK2T5bJiNuXi+iLZ+9m32pJumkpEVdjO/ZuLcjEMnTWM6urnZvCoc/cXYRhArkOYNxQ== /home/cw/.ssh/id_rsa
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+package_update: true
+# upgrade takes some time, so we'll skip for now
+package_upgrade: false
+packages:
+# common packages 
+  - git
+  - tmux
+  - vim
+  - glances
+  - iotop
+  - sysbench
+  - curl
+  - cifs-utils
+  - file
+  # linux-generic is necessary for cifs mount with UTF8 support
+  - linux-generic
+  - xrdp
+  - xorgxrdp
+# meta package for xfce
+  - xubuntu-desktop
+# photo and video tools
+  - libimage-exiftool-perl
+  - exiv2
+  - ffmpeg
+  - digikam
+  - vlc
+  - nomacs
+  - gimp
+# web
+  - chromium-browser
+  - firefox
+# other desktop
+  - keepassx
+write_files:
+  - path: /etc/storagebox.conf
+    encoding: b64
+    content: ##STORAGEBOXCONF##
+    owner: root:root
+    permissions: 600
+  - path: /etc/fstab
+    content: | 
+      //##STORAGEBOXUSER##.your-storagebox.de/backup /mnt/storagebox cifs seal,credentials=/etc/storagebox.conf,iocharset=utf8,uid=1000 0 0
+      /dev/disk/by-id/scsi-0HC_Volume_##HOMEVOLUMEID## /home ext4 errors=remount-ro 0 0
+    append: true
+  - path: /home/cw/.xsession
+    owner: cw:cw
+    content: | 
+        xfce4-session
+runcmd:
+    - mkdir /mnt/storagebox
+    - sed -i 's/.*Port 22*/Port 2278/' /etc/ssh/sshd_config
+    - sed -i 's/.*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+    - sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+#on desktop, allow update to the latest version
+    - sed -i 's/Prompt/Prompt=normal/' /etc/update-manager/release-upgrades
+    - echo "AllowGroups sshlogin" >> /etc/ssh/sshd_config
+    - git clone https://github.com/chris-ca/dotfiles /home/cw/.dotfiles
+    - git clone https://github.com/chris-ca/vim /home/cw/.vim
+    - /home/cw/.dotfiles/install.sh /home/cw
+    - chown -R cw.cw /home/cw
+# Configure Firewall
+    - ufw default deny incoming
+    - ufw default allow outgoing
+    - ufw allow 2278/tcp
+    - ufw enable
+# otherwise XRDP cannot read certificate 
+    - adduser xrdp ssl-cert  
+# Reboot after provisioned
+power_state:
+  mode: reboot
+  message: Reboot needed after cloud-init provisioning
+  timeout: 30
+  condition: True
