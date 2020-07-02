@@ -37,6 +37,8 @@ packages:
   - libimage-exiftool-perl
   - exiv2
   - ffmpeg
+  - melt
+  - xvfb
 write_files:
   - path: /etc/storagebox.conf
     encoding: b64
@@ -62,10 +64,11 @@ runcmd:
     - ufw default deny incoming
     - ufw default allow outgoing
     - ufw allow 2278/tcp
+    - ufw allow 22/tcp
     - ufw enable
 # Reboot 1 minute after provisioned
 power_state:
   mode: reboot
   message: Reboot needed after cloud-init provisioning
   timeout: 30
-  condition: True
+  condition: False
