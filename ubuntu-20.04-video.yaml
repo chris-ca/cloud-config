@@ -39,6 +39,8 @@ packages:
   - ffmpeg
   - melt
   - xvfb
+  - frei0r-plugins
+  - kdenlive
 write_files:
   - path: /etc/storagebox.conf
     encoding: b64
@@ -67,8 +69,9 @@ runcmd:
     - ufw allow 22/tcp
     - ufw enable
 # Reboot 1 minute after provisioned
+# Without reboot, storagebox is unavailable (new kernel not loaded)
 power_state:
   mode: reboot
   message: Reboot needed after cloud-init provisioning
   timeout: 30
-  condition: False
+  condition: True
